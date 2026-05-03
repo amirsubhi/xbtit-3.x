@@ -1,0 +1,27 @@
+<?php
+
+return [
+    'profile'           => 'Profile',
+    'settings'          => 'Settings',
+    'username'          => 'Username',
+    'email'             => 'Email',
+    'joined'            => 'Joined',
+    'level'             => 'Level',
+    'uploaded'          => 'Uploaded',
+    'downloaded'        => 'Downloaded',
+    'ratio'             => 'Ratio',
+    'last_ip'           => 'Last IP',
+    'recent_downloads'  => 'Recent Downloads',
+    'no_downloads'      => 'No downloads yet.',
+    'avatar_url'        => 'Avatar URL',
+    'change_password'   => 'Change Password',
+    'current_password'  => 'Current Password',
+    'new_password'      => 'New Password',
+    'confirm_password'  => 'Confirm New Password',
+    'passkey'           => 'Passkey',
+    'passkey_hint'      => 'Include in your torrent client\'s download URL.',
+    'regenerate_passkey'=> 'Regenerate',
+    'save'              => 'Save Changes',
+    'update_password'   => 'Update Password',
+    'my_profile'        => 'My Profile',
+];

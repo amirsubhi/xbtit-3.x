@@ -1,80 +1,66 @@
-<p align="center">
-    <img src="https://i.imgur.com/f9sGMg2.png" alt="Banner">
-    <a href="https://github.styleci.io/repos/158478792"><img src="https://github.styleci.io/repos/158478792/shield?branch=master" alt="StyleCI"></a>
-</p>
-<hr>
+# xbtit v4 — Laravel Rewrite
 
-## <a name="introduction"></a> :page_facing_up: Introduction
+A full rewrite of the [xbtit BitTorrent tracker](https://github.com/BTITeam/xbtit-3.x) built on **Laravel 13**, PHP 8.3, and Bootstrap 5. All core tracker functionality is preserved with a modern architecture, security hardening, and maintainable code.
 
-Just a few words about this piece of script and some credits ;)
+## Origin & Attribution
 
-The script is released under modified BSD, which mean you can freely use and
-modify it (read LICENSE for more info)
+This project is a refresh of **xbtit 3.x** by the [BTITeam](https://github.com/BTITeam/xbtit-3.x), which itself evolved from BtiTracker and earlier PHP tracker work. Full lineage is preserved in the git history.
 
-xbtit is a complete rewrite of our BtiTracker base code. Every file has been changed, it is impracticable to list all the changes here. xbtit is the concentration of biteam.org's years of experience developing, hacking, and operating, tracker software. We are confident you are going to enjoy this software
+Original credits from xbtit 3.x:
+- **Founder:** Lupin · **Owner:** King Cobra — BTITeam
+- xbtt C++ tracker backend: Olaf van der Spek
+- phpmailer, SMF, bTemplate, and the broader tracker community
 
-To upgrade your modified Btit 1.4.x to xbtit it is necessary to upgrade your current db using upgrade.php (not included in the standard package) and then reapply your hacks to the new xbtit code. Although xbtit has a hack template system designed to make the application of hacks easy, none of our 1.4.x hacks have yet been packaged for xbtit, these will arrive in time as the community adopts the new code
+This rewrite is released under the same modified BSD licence — see `LICENSE.txt`.
 
-xbtit has two bittorrent tracker systems - a PHP tracker and xbtt. The PHP tracker is designed for platforms without access to the system root, or where your tracker is not expected to run with greater than 5-10,000 peers. A PHP tracker can generate a high volume of TCP traffic, potentially millions of hits per day on port 80, you have been cautioned. The second tracker system is xbtt by Olaf van der Spek. xbtt is an efficient C++ tracker capable of running millions of peers at very low overhead, you are recommended in all cases to use the xbtt system
+## What Changed in v4
 
-The opensource free support forum is
-BTITeam http://www.btiteam.eu
+| Area | xbtit 3.x | v4 |
+|---|---|---|
+| Framework | Raw PHP, no routing | Laravel 13 (MVC, routing, Eloquent) |
+| Auth | MD5/SHA1 passwords, raw sessions | Breeze + bcrypt/argon2 + CSRF |
+| Templates | bTemplate custom engine | Blade + Bootstrap 5 |
+| DB access | Raw MySQLi queries | Eloquent ORM + query builder |
+| Announce | announce.php monolith | `AnnounceService` with injected dependencies |
+| Security | Unserialize RCE, XSS, SQL-i | Prepared statements, policies, validated input |
+| Admin | 27 flat PHP admin files | Resourceful admin controllers + Blade views |
 
-## <a name="features"></a> 💎 Some Features
+## Features
 
-- real template system, 99% of the html code is out for the PHP files using bTemplate http://www.massassi.com/bTemplate/
-- rewritten (optimized) announce.php (the PHP tracker)
-- integrated optional xbtt backend by Olaf Van der Spek https://github.com/OlafvdSpek/xbt
-- support for external mail server using phpmailer http://sourceforge.net/projects/phpmailer
-- rewritten internal forum with subforum support
-- integrated optional smf forum (big thanks to petr1fied) http://www.simplemachines.org/
-- one click hack installer, an easy way to install hacks into your tracker (a working example is provided)
-- modules support
-- new online procedure
-- new AJAX shoutbox (big thanks to miskotes)
-- XSS/SQL injection protection with log insertion (thank you cobracrk)
-- new AJAX polls system (thank you to Ripper)
-- new design (4 styles provided by TreepTopClimber)
-- RSS reader (only class, with example in admincp for btiteam.eu latest news)
-- basic cache system
-- new language system (array is used instead of constant)
-- smf_import script to import standard internal forum and users to smf (thank you again to petr1fied)
-- 1.4.x upgrade script
+- BitTorrent announce & scrape (PHP tracker; xbtt C++ backend supported via passkey redirect)
+- Torrent upload, browse, search, download with passkey-injected announce URLs
+- User registration, login, account settings, passkey management
+- Admin panel: users, categories, torrents, IP bans, site settings
+- Internal forum with categories, sub-forums, threads, replies, lock/sticky/delete
+- News posts with comments
+- Shoutbox (AJAX polling)
+- Polls
+- RSS feeds (torrents, news)
+- Multi-language support (Laravel `lang/` structure)
 
-## <a name="requirements"></a> :white_check_mark: Requirements
+## Requirements
 
-- Web server with Apache or Lighttp installed and running
-- PHP 7.2 (If you use php 4, you'll have to rename the phpmailer's folder phpmailer->phpmailer5 and phpmailer4->phpmailer)
-- MySQL 5.6 or 5.7
+- PHP 8.2+
+- MySQL 5.7+ / MariaDB 10.4+
+- Composer 2
 
-## <a name="credits"></a> :muscle: Credits
+## Setup
 
-The script in this version is very very different than the original one, but we are pleased to leave the credits from previous version from which this is born ;)
+```bash
+git clone https://github.com/amirsubhi/xbtit-3.x.git -b v4 xbtit
+cd xbtit
+composer install
+cp .env.example .env
+php artisan key:generate
+# Edit .env with DB credentials
+php artisan migrate
+php artisan db:seed
+```
 
-This tracker's origin was as a frontend for DeHackEd's tracker aka phpBTTracker (now almost extinct)
- 
-We aimed to make a nice user interface and a good admin tool at the same time. Some code and some ideas came from other trackers and projects:
-- torrentbits (http://www.torrentbits.org - dead)
-- torrenttrader (http://www.torrentrader.org - dead)
-- bytemoonsoon (deadlink)
-- Tbdev: CoLdFuSiOn (http://www.tbdev.net - dead)
-- xbtt: Olaf van der Spek (https://github.com/OlafvdSpek/xbt)
-- phpmailer (http://sourceforge.net/projects/phpmailer)
-- smf (http://www.simplemachines.org/)
-- bTemplate: Brian Lozier (http://www.massassi.com/bTemplate)
+## Tracker Announce URL
 
-The rest has been coded, designed, and thought up from scratch
+```
+https://your-tracker.com/announce/{passkey}
+```
 
-Thanks to coder addons/hacks (many are included in this version): 
-Ripper, cobracrk, JBoy, Liroy, Petr1fied, miskotes, gAndo, Fireworx, Freelancer, Sktoch, Nimrod, Q8Hma
-
-Thanks to style maker: 
-TreeTopClimber
-
-Founder: Lupin
-Owner: King Cobra
-
-Many thanks to all guys who participated for the testing and for addons/styles etc.
-
-Btiteam 
-
+Passkeys are generated per user on registration and can be regenerated from the account page.
