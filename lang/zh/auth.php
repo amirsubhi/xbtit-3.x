@@ -1,0 +1,20 @@
+<?php
+return [
+    'login'                => '登录',
+    'logout'               => '退出',
+    'register'             => '注册',
+    'username'             => '用户名',
+    'email'                => '电子邮件',
+    'password'             => '密码',
+    'confirm_password'     => '确认密码',
+    'remember_me'          => '记住我',
+    'forgot_password'      => '忘记密码？',
+    'reset_password'       => '重置密码',
+    'send_reset_link'      => '发送密码重置链接',
+    'confirm_password_msg' => '请在继续之前确认您的密码。',
+    'verify_email'         => '验证电子邮件',
+    'verify_email_msg'     => '验证链接已发送到您的电子邮件地址。',
+    'verify_resend'        => '重新发送验证邮件',
+    'no_account'           => '没有账户？',
+    'login_to_download'    => '登录后下载',
+];

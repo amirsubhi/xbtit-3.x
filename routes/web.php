@@ -18,9 +18,22 @@ use App\Http\Controllers\ShoutController;
 use App\Http\Controllers\ThreadController;
 use App\Http\Controllers\TorrentController;
 use App\Http\Controllers\UserController;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [TorrentController::class, 'index'])->name('home');
+
+// Guest locale switcher — stores chosen locale in session
+Route::post('/locale', function (\Illuminate\Http\Request $request) {
+    $locale = $request->input('locale');
+    if (in_array($locale, SetLocale::SUPPORTED, true)) {
+        session(['locale' => $locale]);
+        if (auth()->check()) {
+            auth()->user()->update(['locale' => $locale]);
+        }
+    }
+    return back();
+})->name('locale.switch');
 
 // Auth routes (Breeze)
 require __DIR__.'/auth.php';

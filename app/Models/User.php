@@ -11,6 +11,16 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable;
 
+    const LOCALES = [
+        'en' => ['name' => 'English',    'flag' => '🇬🇧', 'dir' => 'ltr'],
+        'es' => ['name' => 'Español',    'flag' => '🇪🇸', 'dir' => 'ltr'],
+        'zh' => ['name' => '中文',        'flag' => '🇨🇳', 'dir' => 'ltr'],
+        'ar' => ['name' => 'العربية',    'flag' => '🇸🇦', 'dir' => 'rtl'],
+        'fr' => ['name' => 'Français',   'flag' => '🇫🇷', 'dir' => 'ltr'],
+        'pt' => ['name' => 'Português',  'flag' => '🇧🇷', 'dir' => 'ltr'],
+        'ms' => ['name' => 'Bahasa Melayu', 'flag' => '🇲🇾', 'dir' => 'ltr'],
+    ];
+
     const THEMES = [
         'xbtit-default' => 'xbtit Default (classic blue-grey)',
         'darklair'      => 'Dark Lair (dark + orange)',
@@ -26,6 +36,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'legacy_passkey_expires_at',
         'id_level',
         'theme',
+        'locale',
         'salt',
         'pass_type',
     ];

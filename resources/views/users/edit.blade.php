@@ -84,6 +84,36 @@
             </div>
         </div>
 
+        {{-- Language --}}
+        <div class="card mb-4">
+            <div class="card-header">{{ __('users.language') }}</div>
+            <div class="card-body">
+                <form method="POST" action="{{ route('locale.switch') }}">
+                    @csrf
+                    <div class="row g-2">
+                        @foreach(\App\Models\User::LOCALES as $code => $info)
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <label class="d-block">
+                                    <input type="radio" name="locale" value="{{ $code }}" class="d-none locale-radio"
+                                           @checked(app()->getLocale() === $code)>
+                                    <div class="locale-card d-flex align-items-center gap-2 p-2 rounded border"
+                                         style="cursor:pointer; transition: border-color .15s;
+                                                border-color: {{ app()->getLocale() === $code ? '#0d6efd' : 'var(--bs-border-color)' }} !important;">
+                                        <span style="font-size:1.3rem">{{ $info['flag'] }}</span>
+                                        <span class="small fw-semibold">{{ $info['name'] }}</span>
+                                        @if($info['dir'] === 'rtl')
+                                            <span class="badge bg-secondary ms-auto" style="font-size:.65rem">RTL</span>
+                                        @endif
+                                    </div>
+                                </label>
+                            </div>
+                        @endforeach
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm mt-3">{{ __('users.save_language') }}</button>
+                </form>
+            </div>
+        </div>
+
         {{-- Theme --}}
         <div class="card mb-4" id="theme">
             <div class="card-header">{{ __('users.theme') }}</div>
@@ -158,6 +188,14 @@ document.querySelectorAll('.theme-radio').forEach(radio => {
             c.style.borderColor = 'var(--bs-border-color)';
         });
         radio.closest('label').querySelector('.theme-card').style.borderColor = '#0d6efd';
+    });
+});
+document.querySelectorAll('.locale-radio').forEach(radio => {
+    radio.addEventListener('change', () => {
+        document.querySelectorAll('.locale-card').forEach(c => {
+            c.style.borderColor = 'var(--bs-border-color)';
+        });
+        radio.closest('label').querySelector('.locale-card').style.borderColor = '#0d6efd';
     });
 });
 </script>
