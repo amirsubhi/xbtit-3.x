@@ -2,6 +2,31 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Active Rewrite: xbtit-3.x → Laravel 11
+
+This codebase is being fully rewritten in Laravel 11 + Blade + Bootstrap 5. The full plan is at **`docs/rewrite-plan.md`** — read it before making changes.
+
+**Phase order:** Phase 0 (unserialize patches) → Phase 1 (Laravel foundation + security) → Phase 2 (announce/scrape/feature ports) → Phase 3 (frontend) → Phase 4 (i18n, forum, settings)
+
+**Critical security issues in the legacy code (do not replicate):**
+- `unserialize()` on user-controlled cookie/session data at `include/functions.php:551,558` — unauthenticated RCE
+- `unserialize()` also in `include/config.php:48` (cache) and `config.php:288` (announce URLs)
+- Passwords hashed with MD5/SHA1 (`pass_type` enum 1–7); no bcrypt/argon2
+- No CSRF protection, no prepared statements, no session hardening
+- `getip()` trusts `HTTP_X_FORWARDED_FOR` unconditionally — IP spoofing
+- `users.pid VARCHAR(32)` is the announce passkey (not `users.random` which is the cookie auth token)
+
+**Schema corrections vs. plan references:**
+- `peers.ip` is already `VARCHAR(50)` — IPv6 fix applies to `online.user_ip VARCHAR(15)` instead
+- `pass_type` has 7 variants (enum `'1'`–`'7'`), not 6 — `LegacyPasswordVerifier` needs a type-7 handler
+- `settings.value` is `VARCHAR(200)` — migrate to `TEXT` in new schema
+
+---
+
+## Legacy Codebase Reference
+
+The sections below document the **existing PHP codebase**, kept as reference for porting work.
+
 ## Project Overview
 
 **xbtit** is a PHP-based BitTorrent tracker and web frontend (version 2.6.1). It handles torrent indexing, peer tracking via the BitTorrent announce protocol, user management, and an optional internal forum. It supports an optional high-performance C++ backend (`xbtt`).
