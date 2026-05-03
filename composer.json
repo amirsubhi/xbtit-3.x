@@ -2,7 +2,7 @@
     "name": "xbtit/xbtit",
     "description": "xbtit v4 — A modern BitTorrent tracker built on Laravel 13.",
     "keywords": ["bittorrent", "tracker", "laravel"],
-    "license": "GPL-2.0-or-later",
+    "license": "BSD-3-Clause",
     "type": "project",
     "require": {
         "php": "^8.2",
