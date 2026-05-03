@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\github\\\\xbtit-3.x\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(grep -n 'session\\\\|auth\\\\|login\\\\|$CURUSER' 'D:\\\\github\\\\xbtit-3.x\\\\include\\\\functions.php')",
+      "Bash(grep -r 'echo.*$_' 'D:\\\\github\\\\xbtit-3.x' '--include=*.php')",
+      "Bash(grep \"\\\\.js$\")",
+      "Bash(grep -n \"global \\\\$\" \"D:\\\\github\\\\xbtit-3.x\\\\include\\\\functions.php\")",
+      "Bash(xargs grep *)",
+      "PowerShell(\\(Get-Content D:\\\\github\\\\xbtit-3.x\\\\announce.php\\).Length; \\(Get-Content D:\\\\github\\\\xbtit-3.x\\\\include\\\\functions.php\\).Length)",
+      "PowerShell(Get-Command *)",
+      "PowerShell($env:PATH -split ';' | Where-Object { $_ -ne '' })"
+    ]
+  }
+}
