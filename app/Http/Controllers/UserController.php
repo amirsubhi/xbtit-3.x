@@ -31,17 +31,15 @@ class UserController extends Controller
     {
         $user = $request->user();
 
-        $request->validate([
-            'email'  => ['required', 'email', 'max:100', Rule::unique('users')->ignore($user->id)],
+        $data = $request->validate([
+            'email'  => ['sometimes', 'required', 'email', 'max:100', Rule::unique('users')->ignore($user->id)],
             'avatar' => ['sometimes', 'nullable', 'url', 'max:200'],
+            'theme'  => ['sometimes', 'nullable', Rule::in(array_keys(User::THEMES))],
         ]);
 
-        $user->update([
-            'email'  => $request->input('email'),
-            'avatar' => $request->input('avatar'),
-        ]);
+        $user->update(array_filter($data, fn ($v) => $v !== null));
 
-        return back()->with('status', 'Profile updated.');
+        return back()->with('status', 'Settings updated.');
     }
 
     public function regeneratePasskey(Request $request): RedirectResponse

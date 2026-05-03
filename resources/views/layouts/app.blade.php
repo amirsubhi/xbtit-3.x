@@ -1,5 +1,14 @@
+@php
+    $theme = auth()->user()?->theme ?? session('theme', app(\App\Services\SettingService::class)->get('default_theme', 'xbtit-default'));
+    $bsTheme = match($theme) {
+        'darklair', 'modern' => 'dark',
+        default              => 'light',
+    };
+@endphp
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+      data-bs-theme="{{ $bsTheme }}"
+      data-xbt-theme="{{ $theme }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,11 +16,13 @@
     <title>@hasSection('title')@yield('title') &mdash; @endif{{ config('app.name', 'xbtit') }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ asset('css/xbtit.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/themes/' . $theme . '.css') }}">
     @stack('styles')
 </head>
-<body class="bg-light">
+<body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<nav class="navbar navbar-expand-lg">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="{{ route('home') }}">{{ config('app.name', 'xbtit') }}</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
@@ -52,7 +63,7 @@
                                href="#" data-bs-toggle="dropdown">
                                 <i class="bi bi-shield-lock"></i> {{ __('nav.admin') }}
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-dark">
+                            <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}">{{ __('admin.dashboard') }}</a></li>
                                 <li><a class="dropdown-item" href="{{ route('admin.settings.index') }}">{{ __('admin.settings') }}</a></li>
                                 <li><hr class="dropdown-divider"></li>
@@ -74,7 +85,7 @@
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                             <i class="bi bi-person-circle"></i> {{ auth()->user()->username }}
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+                        <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{{ route('users.show', auth()->id()) }}">
                                 <i class="bi bi-person"></i> {{ __('nav.profile') }}
                             </a></li>
@@ -126,6 +137,7 @@
 
 <footer class="border-top py-3 mt-4 text-center text-muted small">
     &copy; {{ date('Y') }} {{ config('app.name', 'xbtit') }}
+    &mdash; <a href="{{ route('account.edit') }}#theme" class="text-muted">{{ ucfirst(str_replace('-', ' ', $theme)) }}</a>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -11,6 +11,12 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable;
 
+    const THEMES = [
+        'xbtit-default' => 'xbtit Default (classic blue-grey)',
+        'darklair'      => 'Dark Lair (dark + orange)',
+        'modern'        => 'Modern (slate dark)',
+    ];
+
     protected $fillable = [
         'username',
         'email',
@@ -19,6 +25,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'legacy_passkey',
         'legacy_passkey_expires_at',
         'id_level',
+        'theme',
         'salt',
         'pass_type',
     ];

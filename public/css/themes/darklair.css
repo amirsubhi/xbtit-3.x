@@ -1,0 +1,168 @@
+/*
+ * darklair theme — Bootstrap 5 port of the original xbtit darklair
+ * Colour palette: near-black background, #e16503 orange accent
+ */
+
+[data-xbt-theme="darklair"] {
+    --xbt-bg:          #0e0e0e;
+    --xbt-surface:     #1a1a1a;
+    --xbt-surface-2:   #242424;
+    --xbt-border:      #333333;
+    --xbt-header-bg:   #1e1e1e;
+    --xbt-header-text: #e16503;
+    --xbt-text:        #cccccc;
+    --xbt-muted:       #888888;
+    --xbt-link:        #e16503;
+    --xbt-link-hover:  #ff8c00;
+    --xbt-primary:     #e16503;
+    --xbt-primary-rgb: 225, 101, 3;
+    --xbt-seed:        #4caf50;
+    --xbt-leech:       #e16503;
+    --xbt-navbar-bg:   #030303;
+    --xbt-navbar-text: #cccccc;
+
+    /* Bootstrap 5 dark-mode overrides */
+    --bs-body-bg:         var(--xbt-bg);
+    --bs-body-color:      var(--xbt-text);
+    --bs-primary:         var(--xbt-primary);
+    --bs-primary-rgb:     var(--xbt-primary-rgb);
+    --bs-link-color:      var(--xbt-link);
+    --bs-link-hover-color: var(--xbt-link-hover);
+    --bs-card-bg:         var(--xbt-surface);
+    --bs-card-border-color: var(--xbt-border);
+    --bs-table-bg:        var(--xbt-surface);
+    --bs-table-striped-bg: #212121;
+    --bs-border-color:    var(--xbt-border);
+    --bs-secondary-bg:    var(--xbt-surface-2);
+    --bs-tertiary-bg:     #111111;
+    --bs-emphasis-color:  #ffffff;
+}
+
+[data-xbt-theme="darklair"] .navbar {
+    background-color: var(--xbt-navbar-bg) !important;
+    border-bottom: 1px solid #2a2a2a;
+}
+[data-xbt-theme="darklair"] .navbar .navbar-brand,
+[data-xbt-theme="darklair"] .navbar .nav-link {
+    color: var(--xbt-navbar-text) !important;
+}
+[data-xbt-theme="darklair"] .navbar .nav-link:hover,
+[data-xbt-theme="darklair"] .navbar .nav-link.active { color: var(--xbt-primary) !important; }
+
+/* Card headers — dark with orange accent left-border */
+[data-xbt-theme="darklair"] .card-header {
+    background-color: var(--xbt-header-bg);
+    border-bottom: 1px solid var(--xbt-border);
+    border-left: 3px solid var(--xbt-primary);
+    color: var(--xbt-header-text);
+    font-weight: 600;
+    font-size: .85rem;
+}
+
+[data-xbt-theme="darklair"] .card {
+    background-color: var(--xbt-surface);
+    border-color: var(--xbt-border);
+}
+
+/* Tables */
+[data-xbt-theme="darklair"] .table {
+    --bs-table-bg:          var(--xbt-surface);
+    --bs-table-striped-bg:  #212121;
+    --bs-table-hover-bg:    #2a2a2a;
+    --bs-table-border-color: var(--xbt-border);
+    color: var(--xbt-text);
+}
+[data-xbt-theme="darklair"] .table thead th,
+[data-xbt-theme="darklair"] .table thead.table-light th {
+    background-color: var(--xbt-header-bg);
+    border-color: var(--xbt-border);
+    color: var(--xbt-primary);
+}
+
+/* Seeder / leecher */
+[data-xbt-theme="darklair"] .text-seed  { color: var(--xbt-seed) !important; }
+[data-xbt-theme="darklair"] .text-leech { color: var(--xbt-leech) !important; }
+
+[data-xbt-theme="darklair"] .badge.bg-success { background-color: var(--xbt-seed) !important; }
+[data-xbt-theme="darklair"] .badge.bg-warning { background-color: var(--xbt-leech) !important; color: #fff !important; }
+
+/* Buttons */
+[data-xbt-theme="darklair"] .btn-primary {
+    background-color: var(--xbt-primary);
+    border-color: #c85500;
+    color: #fff;
+}
+[data-xbt-theme="darklair"] .btn-primary:hover { background-color: #c85500; border-color: #b04a00; }
+[data-xbt-theme="darklair"] .btn-outline-primary { color: var(--xbt-primary); border-color: var(--xbt-primary); }
+[data-xbt-theme="darklair"] .btn-outline-primary:hover { background-color: var(--xbt-primary); color: #fff; }
+[data-xbt-theme="darklair"] .btn-outline-secondary { color: #aaa; border-color: #555; }
+[data-xbt-theme="darklair"] .btn-outline-secondary:hover { background-color: #333; color: #fff; }
+
+/* Pagination */
+[data-xbt-theme="darklair"] .page-link {
+    background-color: var(--xbt-surface-2);
+    border-color: var(--xbt-border);
+    color: var(--xbt-link);
+}
+[data-xbt-theme="darklair"] .page-item.active .page-link {
+    background-color: var(--xbt-primary);
+    border-color: var(--xbt-primary);
+    color: #fff;
+}
+
+/* Forms */
+[data-xbt-theme="darklair"] .form-control,
+[data-xbt-theme="darklair"] .form-select {
+    background-color: #111;
+    border-color: var(--xbt-border);
+    color: var(--xbt-text);
+}
+[data-xbt-theme="darklair"] .form-control:focus,
+[data-xbt-theme="darklair"] .form-select:focus {
+    border-color: var(--xbt-primary);
+    box-shadow: 0 0 0 .2rem rgba(225,101,3,.3);
+    background-color: #161616;
+    color: #fff;
+}
+
+/* Inputs placeholder */
+[data-xbt-theme="darklair"] .form-control::placeholder { color: #555; }
+
+/* Footer */
+[data-xbt-theme="darklair"] footer {
+    background-color: var(--xbt-navbar-bg);
+    border-top: 1px solid var(--xbt-border) !important;
+    color: var(--xbt-muted);
+}
+
+/* Breadcrumbs */
+[data-xbt-theme="darklair"] .breadcrumb-item a { color: var(--xbt-link); }
+[data-xbt-theme="darklair"] .breadcrumb-item.active { color: var(--xbt-muted); }
+[data-xbt-theme="darklair"] .breadcrumb-item + .breadcrumb-item::before { color: var(--xbt-muted); }
+
+/* Nav pills / tabs */
+[data-xbt-theme="darklair"] .nav-tabs .nav-link { color: var(--xbt-muted); border-color: transparent; }
+[data-xbt-theme="darklair"] .nav-tabs .nav-link.active {
+    color: var(--xbt-primary);
+    background-color: var(--xbt-surface);
+    border-bottom-color: var(--xbt-surface);
+}
+
+/* Alerts */
+[data-xbt-theme="darklair"] .alert-success { background-color: #1a3a1e; border-color: #2d5e33; color: #6fcf7a; }
+[data-xbt-theme="darklair"] .alert-danger  { background-color: #3a1a1a; border-color: #6e2a2a; color: #f88; }
+
+/* Dropdown */
+[data-xbt-theme="darklair"] .dropdown-menu {
+    background-color: var(--xbt-surface-2);
+    border-color: var(--xbt-border);
+}
+[data-xbt-theme="darklair"] .dropdown-item { color: var(--xbt-text); }
+[data-xbt-theme="darklair"] .dropdown-item:hover { background-color: var(--xbt-border); color: var(--xbt-primary); }
+[data-xbt-theme="darklair"] .dropdown-divider { border-color: var(--xbt-border); }
+
+/* Text utilities */
+[data-xbt-theme="darklair"] .text-muted { color: var(--xbt-muted) !important; }
+[data-xbt-theme="darklair"] .bg-light { background-color: var(--xbt-surface-2) !important; }
+[data-xbt-theme="darklair"] .table-light { --bs-table-bg: var(--xbt-header-bg); }
+[data-xbt-theme="darklair"] .table-danger { --bs-table-bg: #3a1a1a; }
