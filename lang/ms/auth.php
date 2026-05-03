@@ -1,0 +1,20 @@
+<?php
+return [
+    'login'                => 'Log Masuk',
+    'logout'               => 'Log Keluar',
+    'register'             => 'Daftar',
+    'username'             => 'Nama Pengguna',
+    'email'                => 'E-mel',
+    'password'             => 'Kata Laluan',
+    'confirm_password'     => 'Sahkan Kata Laluan',
+    'remember_me'          => 'Ingat saya',
+    'forgot_password'      => 'Lupa kata laluan?',
+    'reset_password'       => 'Tetapkan Semula Kata Laluan',
+    'send_reset_link'      => 'Hantar Pautan Tetapan Semula',
+    'confirm_password_msg' => 'Sila sahkan kata laluan anda sebelum meneruskan.',
+    'verify_email'         => 'Sahkan Alamat E-mel',
+    'verify_email_msg'     => 'Pautan pengesahan telah dihantar ke alamat e-mel anda.',
+    'verify_resend'        => 'Hantar Semula E-mel Pengesahan',
+    'no_account'           => 'Tiada akaun?',
+    'login_to_download'    => 'Log masuk untuk muat turun',
+];

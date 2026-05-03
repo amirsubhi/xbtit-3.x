@@ -24,4 +24,8 @@ return [
     'save'              => 'Save Changes',
     'update_password'   => 'Update Password',
     'my_profile'        => 'My Profile',
+    'theme'             => 'Interface Theme',
+    'save_theme'        => 'Apply Theme',
+    'language'          => 'Language',
+    'save_language'     => 'Apply Language',
 ];

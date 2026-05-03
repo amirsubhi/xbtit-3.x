@@ -45,6 +45,15 @@
                             <textarea class="form-control font-monospace @error($setting->key) is-invalid @enderror"
                                       id="s_{{ $setting->key }}" name="{{ $setting->key }}"
                                       rows="3">{{ old($setting->key, $setting->value) }}</textarea>
+                        @elseif($setting->key === 'default_theme')
+                            <label class="form-label" for="s_{{ $setting->key }}">
+                                {{ $setting->label ?: 'Default Theme' }}
+                            </label>
+                            <select class="form-select" id="s_{{ $setting->key }}" name="{{ $setting->key }}">
+                                @foreach(\App\Models\User::THEMES as $tk => $tl)
+                                    <option value="{{ $tk }}" @selected(old($setting->key, $setting->value) === $tk)>{{ $tl }}</option>
+                                @endforeach
+                            </select>
                         @else
                             <label class="form-label" for="s_{{ $setting->key }}">
                                 {{ $setting->label ?: $setting->key }}

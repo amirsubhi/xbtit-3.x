@@ -40,6 +40,7 @@ return new class extends Migration
             ['key' => 'default_charset',        'value' => 'UTF-8'],
             ['key' => 'xbtt_enabled',           'value' => 'false'],
             ['key' => 'xbtt_url',               'value' => 'http://localhost:2710'],
+            ['key' => 'default_theme',          'value' => 'xbtit-default'],
         ];
 
         DB::table('settings')->insert($defaults);

@@ -3,6 +3,7 @@
 use App\Http\Middleware\CheckIpBan;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // IP ban check on every web request
         $middleware->appendToGroup('web', CheckIpBan::class);
+
+        // Apply user/session locale on every web request
+        $middleware->appendToGroup('web', SetLocale::class);
 
         // Route middleware aliases
         $middleware->alias([
