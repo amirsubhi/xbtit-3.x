@@ -9,10 +9,12 @@ use App\Http\Controllers\Admin\TorrentController as AdminTorrentController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\ForumController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PollController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RatingController;
 use App\Http\Controllers\RssController;
 use App\Http\Controllers\ShoutController;
 use App\Http\Controllers\ThreadController;
@@ -47,8 +49,9 @@ Route::get('/news',       [NewsController::class, 'index'])->name('news.index');
 Route::get('/news/{id}',  [NewsController::class, 'show'])->name('news.show');
 
 // RSS feeds (public)
-Route::get('/rss/torrents', [RssController::class, 'torrents'])->name('rss.torrents');
-Route::get('/rss/news',     [RssController::class, 'news'])->name('rss.news');
+Route::get('/rss/torrents',  [RssController::class, 'torrents'])->name('rss.torrents');
+Route::get('/rss/news',      [RssController::class, 'news'])->name('rss.news');
+Route::get('/rss/combined',  [RssController::class, 'combined'])->name('rss.combined');
 
 // Shoutbox — public poll, auth post, admin delete
 Route::get('/shoutbox',  [ShoutController::class, 'index'])->name('shoutbox.index');
@@ -80,6 +83,17 @@ Route::middleware('auth')->group(function () {
     // Torrent comments
     Route::post('/torrents/{infoHash}/comments',   [CommentController::class, 'store'])->name('comments.store');
     Route::delete('/comments/{comment}',           [CommentController::class, 'destroy'])->name('comments.destroy');
+
+    // Torrent ratings (C-19)
+    Route::post('/torrents/{infoHash}/rating',     [RatingController::class, 'store'])->name('ratings.store');
+
+    // Private messages (C-33)
+    Route::get('/messages',                        [MessageController::class, 'inbox'])->name('messages.inbox');
+    Route::get('/messages/sent',                   [MessageController::class, 'sent'])->name('messages.sent');
+    Route::get('/messages/create',                 [MessageController::class, 'create'])->name('messages.create');
+    Route::post('/messages',                       [MessageController::class, 'store'])->name('messages.store');
+    Route::get('/messages/{message}',              [MessageController::class, 'show'])->name('messages.show');
+    Route::delete('/messages/{message}',           [MessageController::class, 'destroy'])->name('messages.destroy');
 
     // User profile & account
     Route::get('/users/{id}',      [UserController::class, 'show'])->name('users.show');

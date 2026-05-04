@@ -9,6 +9,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rules;
@@ -30,6 +31,14 @@ class RegisteredUserController extends Controller
         if (RateLimiter::tooManyAttempts('register|' . $request->ip(), 3)) {
             throw ValidationException::withMessages([
                 'username' => 'Too many registration attempts. Please try again later.',
+            ]);
+        }
+
+        // MAX_USERS cap (C-20): 0 = unlimited.
+        $maxUsers = (int) DB::table('settings')->where('key', 'max_users')->value('value');
+        if ($maxUsers > 0 && User::count() >= $maxUsers) {
+            throw ValidationException::withMessages([
+                'username' => 'Registration is currently closed — the site has reached its maximum user count.',
             ]);
         }
 

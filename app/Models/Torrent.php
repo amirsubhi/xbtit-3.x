@@ -19,7 +19,7 @@ class Torrent extends Model
         'info_hash', 'filename', 'url', 'info', 'size', 'comment',
         'category', 'external', 'announce_url', 'uploader',
         'anonymous', 'dlbytes', 'seeds', 'leechers', 'finished',
-        'bin_hash',
+        'bin_hash', 'added', 'speed',
     ];
 
     protected function casts(): array

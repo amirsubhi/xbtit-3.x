@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\User;
 use App\Models\UserLevel;
 use Illuminate\Http\Request;
@@ -38,6 +39,8 @@ class UserController extends Controller
         $user->id_level  = $data['id_level'];
         $user->locked_at = !empty($data['locked']) ? ($user->locked_at ?? now()) : null;
         $user->save();
+
+        AuditLog::record('admin.user.update', ['target_user_id' => $user->id, 'id_level' => $data['id_level']]);
 
         return back()->with('status', 'User updated.');
     }

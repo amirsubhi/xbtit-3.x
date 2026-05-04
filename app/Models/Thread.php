@@ -30,4 +30,9 @@ class Thread extends Model
     {
         return $this->hasMany(Post::class)->orderBy('created_at');
     }
+
+    public function latestPost(): HasMany
+    {
+        return $this->hasMany(Post::class)->latest()->limit(1);
+    }
 }

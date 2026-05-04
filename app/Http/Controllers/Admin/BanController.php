@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\BannedIp;
 use Illuminate\Http\Request;
 
@@ -34,12 +35,16 @@ class BanController extends Controller
             'comment' => $data['comment'] ?? '',
         ]);
 
+        AuditLog::record('admin.ban.add', ['ip_start' => $data['ip_start'], 'ip_end' => $data['ip_end'] ?? $data['ip_start']]);
+
         return back()->with('status', 'IP ban added.');
     }
 
     public function destroy(BannedIp $ban)
     {
+        AuditLog::record('admin.ban.remove', ['first' => $ban->first, 'last' => $ban->last]);
         $ban->delete();
+
         return back()->with('status', 'IP ban removed.');
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\News;
+use App\Models\Thread;
 use App\Models\Torrent;
 use App\Services\BEncodeService;
 use App\Services\PasskeyService;
@@ -51,20 +53,28 @@ class TorrentController extends Controller
 
         // Sorting
         $orderMap = [
-            1 => 'filename', 2 => 'filename', 3 => 'created_at',
+            1 => 'filename', 2 => 'filename', 3 => 'added',
             4 => 'size',     5 => 'seeds',    6 => 'leechers',
             7 => 'finished', 8 => 'dlbytes',  9 => 'speed',
         ];
-        $orderCol = $orderMap[(int) $request->query('order', 3)] ?? 'created_at';
+        $orderCol = $orderMap[(int) $request->query('order', 3)] ?? 'added';
         $orderDir = $request->query('by') === '1' ? 'asc' : 'desc';
         $query->orderBy($orderCol, $orderDir);
 
-        $perPage = auth()->user()?->torrentsperpage ?? 15;
+        $perPage  = auth()->user()?->torrentsperpage ?? 15;
         $torrents = $query->paginate($perPage, pageName: 'pages');
 
         $categories = Category::where('sub', 0)->with('children')->orderBy('sort_index')->get();
 
-        return view('torrents.index', compact('torrents', 'categories'));
+        // Front page sidebar: latest news + recent forum activity (C-31)
+        $latestNews    = News::latest()->limit(5)->get();
+        $recentThreads = Thread::with(['forum', 'latestPost.author'])
+            ->where('locked', false)
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        return view('torrents.index', compact('torrents', 'categories', 'latestNews', 'recentThreads'));
     }
 
     public function show(string $infoHash): View
@@ -97,13 +107,19 @@ class TorrentController extends Controller
         $file     = $request->file('torrent');
         $contents = file_get_contents($file->getRealPath());
 
-        // Parse and validate .torrent structure
         $torrentData = $this->bencode->decode($contents);
         if (!is_array($torrentData) || !isset($torrentData['info'])) {
             return back()->withErrors(['torrent' => 'Invalid .torrent file structure.']);
         }
 
-        // Compute info_hash from the bencoded info dict
+        // DHT private-flag injection (C-12): when disable_dht is enabled, set info.private=1
+        // and recompute info_hash so DHT-found peers can't bypass the tracker.
+        $disableDht = DB::table('settings')->where('key', 'disable_dht')->value('value');
+        if ($disableDht === 'true' || $disableDht === '1') {
+            $torrentData['info']['private'] = 1;
+            $contents = $this->bencode->encode($torrentData);
+        }
+
         $infoHash = sha1($this->bencode->encode($torrentData['info']));
 
         if (!$this->bencode->isValidHash($infoHash)) {
@@ -114,16 +130,13 @@ class TorrentController extends Controller
             return back()->withErrors(['torrent' => 'This torrent already exists on the tracker.']);
         }
 
-        // Validate category
         $category = Category::findOrFail($request->integer('category'));
 
-        // Store torrent file
-        $filename = $infoHash . '.btf';
-        Storage::disk('torrents')->put($filename, $contents);
+        $storeName = $infoHash . '.btf';
+        Storage::disk('torrents')->put($storeName, $contents);
 
         $info = $torrentData['info'];
 
-        // Multi-file torrent: sum all file lengths; single-file: use top-level length
         if (isset($info['length'])) {
             $size = (int) $info['length'];
         } elseif (isset($info['files']) && is_array($info['files'])) {
@@ -132,23 +145,23 @@ class TorrentController extends Controller
             $size = 0;
         }
 
-        // Prefer info.name from the torrent metadata over the uploaded filename
         $displayName = (isset($info['name']) && $info['name'] !== '')
             ? $info['name']
             : $file->getClientOriginalName();
 
         $torrent = Torrent::create([
-            'info_hash'   => $infoHash,
-            'filename'    => $displayName,
-            'url'         => $filename,
-            'info'        => $request->input('description'),
-            'size'        => $size,
-            'category'    => $category->id,
-            'external'    => 'no',
-            'announce_url'=> '',
-            'uploader'    => $request->user()->id,
-            'anonymous'   => $request->boolean('anonymous') ? 'true' : 'false',
-            'bin_hash'    => hex2bin($infoHash),
+            'info_hash'    => $infoHash,
+            'filename'     => $displayName,
+            'url'          => $storeName,
+            'info'         => $request->input('description'),
+            'size'         => $size,
+            'category'     => $category->id,
+            'external'     => 'no',
+            'announce_url' => '',
+            'uploader'     => $request->user()->id,
+            'anonymous'    => $request->boolean('anonymous') ? 'true' : 'false',
+            'bin_hash'     => hex2bin($infoHash),
+            'added'        => time(),
         ]);
 
         return redirect()->route('torrents.show', $infoHash)

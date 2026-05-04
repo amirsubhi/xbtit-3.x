@@ -4,6 +4,7 @@ use App\Http\Middleware\CheckIpBan;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\TrackOnlineUsers;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -29,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Apply user/session locale on every web request
         $middleware->appendToGroup('web', SetLocale::class);
+
+        // Track authenticated users in the online table (C-28)
+        $middleware->appendToGroup('web', TrackOnlineUsers::class);
 
         // Route middleware aliases
         $middleware->alias([

@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Models\BannedIp;
-use App\Models\Peer;
-use App\Models\Torrent;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,15 +10,17 @@ use Illuminate\Support\Facades\Log;
 
 class AnnounceService
 {
-    // summaryAdd accumulator — flushed as one UPDATE to files at the end
-    private array $summary = [];
-    private ?string $currentInfoHash = null;
+    // Browser user-agent fragments that indicate a web browser, not a BT client (C-10).
+    private const BROWSER_UA_FRAGMENTS = [
+        'Mozilla/', 'Opera/', 'Links ', 'Lynx/', 'AppleWebKit/',
+    ];
 
-    // Limits from settings (loaded once per request)
-    private int $maxSeeds = 3;
-    private int $maxLeech = 2;
-    private int $maxPeers = 50;
-    private int $interval = 1800;
+    private array $summary = [];
+
+    private int $maxSeeds    = 3;
+    private int $maxLeech    = 2;
+    private int $maxPeers    = 50;
+    private int $interval    = 1800;
     private int $minInterval = 300;
 
     public function __construct(
@@ -29,10 +29,6 @@ class AnnounceService
         private readonly SettingService $settings,
     ) {}
 
-    /**
-     * Build the xbtt redirect URL if xbtt is enabled, or null if not.
-     * Called by the controller so it can return a proper HTTP 302.
-     */
     public function xbttRedirectUrl(Request $request): ?string
     {
         if (!$this->settings->get('xbtt_enabled', false)) {
@@ -55,24 +51,26 @@ class AnnounceService
             : rtrim($xbttUrl, '/') . "/announce?{$qs}";
     }
 
-    /**
-     * Main entry point — returns a raw bencoded string (always HTTP 200).
-     */
     public function handle(Request $request): string
     {
-        // Must complete even if client disconnects (e.g., event=stopped)
         ignore_user_abort(true);
 
         $this->loadSettings();
 
-        // Validate pid immediately — kills header injection + SQLi in one rule
+        // Reject browser user-agents — BT clients never send Mozilla/Opera/etc. (C-10)
+        $ua = $request->userAgent() ?? '';
+        foreach (self::BROWSER_UA_FRAGMENTS as $fragment) {
+            if (str_contains($ua, $fragment)) {
+                return $this->bencode->failure('Browser access is not allowed on the announce endpoint.');
+            }
+        }
+
         $pid = (string) ($request->query('pid', ''));
         if (!preg_match($this->passkeys->validationPattern(), $pid)) {
             return $this->bencode->failure('Invalid passkey format.');
         }
 
-        // info_hash and peer_id arrive as raw 20-byte binary in the query string;
-        // PHP URL-decodes them automatically, so we hex-encode for storage
+        // info_hash and peer_id arrive as raw 20-byte binary; PHP URL-decodes them.
         $rawInfoHash = $request->query('info_hash', '');
         $rawPeerId   = $request->query('peer_id', '');
 
@@ -82,9 +80,7 @@ class AnnounceService
 
         $infoHash = bin2hex($rawInfoHash);
         $peerId   = bin2hex($rawPeerId);
-        $this->currentInfoHash = $infoHash;
 
-        // Required numeric fields
         if (!$request->has(['port', 'downloaded', 'uploaded', 'left'])) {
             return $this->bencode->failure('Missing required fields.');
         }
@@ -94,25 +90,23 @@ class AnnounceService
         $uploaded   = (int) $request->query('uploaded');
         $left       = (int) $request->query('left');
         $event      = $request->query('event', '');
-        $isCompact  = $request->query('compact') === '1';
-        $numwant    = $request->has('numwant') ? min((int) $request->query('numwant'), $this->maxPeers) : $this->maxPeers;
+        $numwant    = $request->has('numwant')
+            ? min((int) $request->query('numwant'), $this->maxPeers)
+            : $this->maxPeers;
 
-        // IP — use REMOTE_ADDR only; never trust forwarded headers from clients
         $ip = $request->ip();
 
-        // Port range check
         if ($port < 1 || $port > 65535) {
             return $this->bencode->failure('Invalid port.');
         }
 
-        // IP ban check (inline — announce skips CheckIpBan middleware)
         if (BannedIp::isBanned($ip)) {
             return $this->bencode->failure('Your IP address is banned.');
         }
 
-        // Torrent authorization
-        $torrent = Torrent::where('info_hash', $infoHash)
-            ->where('external', 'no')
+        $torrent = DB::table('files')
+            ->select('info_hash', 'external', 'added')
+            ->where('info_hash', $infoHash)
             ->first();
 
         if (!$torrent) {
@@ -121,7 +115,6 @@ class AnnounceService
             }
         }
 
-        // User lookup by passkey
         $user = $this->passkeys->findUser($pid);
         if (!$user) {
             return $this->bencode->failure('Invalid passkey. Please re-download the torrent.');
@@ -131,27 +124,58 @@ class AnnounceService
             return $this->bencode->failure('Your account level cannot download.');
         }
 
-        // Per-passkey concurrency limits (anti-account-sharing)
+        // Wait-time gate (C-04): leechers must wait WT hours after torrent was added.
+        // Seeds are always allowed through; completed leechers also skip this check.
+        if ($left > 0 && $torrent && $event !== 'completed') {
+            if ($waitError = $this->checkWaitTime($torrent, $user)) {
+                return $waitError;
+            }
+        }
+
         if ($error = $this->checkConcurrencyLimit($pid, $infoHash, $peerId)) {
             return $error;
         }
 
-        // Update live stats (uploaded/downloaded deltas)
         $this->updateLiveStats($pid, $infoHash, $peerId, $uploaded, $downloaded);
 
-        // Dispatch to the appropriate event handler
         $result = match ($event) {
-            'started'   => $this->handleStarted($infoHash, $peerId, $ip, $port, $left, $uploaded, $downloaded, $pid, $user),
-            'stopped'   => $this->handleStopped($infoHash, $peerId, $left, $pid, $uploaded, $downloaded),
-            'completed' => $this->handleCompleted($infoHash, $peerId, $ip, $port, $left, $uploaded, $downloaded, $pid, $user),
-            '', 'paused' => $this->handleAnnounce($infoHash, $peerId, $ip, $port, $left, $uploaded, $downloaded, $pid),
-            default     => $this->bencode->failure('Invalid event.'),
+            'started'        => $this->handleStarted($infoHash, $peerId, $ip, $port, $left, $uploaded, $downloaded, $pid, $user),
+            'stopped'        => $this->handleStopped($infoHash, $peerId, $left, $pid, $uploaded, $downloaded),
+            'completed'      => $this->handleCompleted($infoHash, $peerId, $ip, $port, $left, $uploaded, $downloaded, $pid, $user),
+            '', 'paused'     => $this->handleAnnounce($infoHash, $peerId, $ip, $port, $left, $uploaded, $downloaded, $pid),
+            default          => $this->bencode->failure('Invalid event.'),
         };
 
-        // Flush the batched files UPDATE (one query, not many)
         $this->flushSummary($infoHash);
+        $this->recordSpeedSample($infoHash);
 
-        return $result;
+        return $this->buildPeerResponse($infoHash, $numwant);
+    }
+
+    // -------------------------------------------------------------------------
+    // Wait-time gate (C-04)
+    // -------------------------------------------------------------------------
+
+    private function checkWaitTime(object $torrent, User $user): ?string
+    {
+        // WT hours come from the torrent row first, then fall back to the user's level WT.
+        $wtHours = (int) ($torrent->wt ?? $user->level?->wt ?? 0);
+
+        if ($wtHours <= 0) {
+            return null;
+        }
+
+        $added   = (int) $torrent->added;
+        $elapsed = time() - $added;
+
+        if ($elapsed < ($wtHours * 3600)) {
+            $remaining = (int) ceil(($wtHours * 3600 - $elapsed) / 3600);
+            return $this->bencode->failure(
+                "You must wait {$remaining} more hour(s) before you can download this torrent."
+            );
+        }
+
+        return null;
     }
 
     // -------------------------------------------------------------------------
@@ -161,18 +185,15 @@ class AnnounceService
     private function handleStarted(
         string $infoHash, string $peerId, string $ip, int $port,
         int $left, int $uploaded, int $downloaded, string $pid, User $user
-    ): string {
+    ): void {
         $this->insertOrUpdatePeer($infoHash, $peerId, $ip, $port, $left, $uploaded, $downloaded, $pid);
-
         $this->logHistory($infoHash, $user->id, 'yes');
-
-        return $this->buildPeerResponse($infoHash, $pid, true);
     }
 
     private function handleStopped(
         string $infoHash, string $peerId, int $left,
         string $pid, int $uploaded, int $downloaded
-    ): string {
+    ): void {
         $peer = $this->getPeer($infoHash, $peerId);
 
         if ($peer) {
@@ -184,36 +205,28 @@ class AnnounceService
                 ->delete();
 
             if ($deleted) {
-                // Decrement the correct counter (seeds or leechers)
-                $this->summaryAdd($peer->isSeeder() ? 'seeds' : 'leechers', -1);
+                $this->summaryAdd($peer->status === 'seeder' ? 'seeds' : 'leechers', -1);
 
-                // Bytes downloaded since last announce = previous left minus current left
                 $delta = max(0, $prevLeft - $left);
                 if ($delta > 0) {
                     $this->summaryAdd('dlbytes', $delta);
                 }
 
-                // Peer completed without sending event=completed (e.g. client crash-quit)
                 if ($prevLeft > 0 && $left === 0) {
                     $this->summaryAdd('finished', 1);
                 }
 
-                $this->summaryAdd('lastcycle', 'UNIX_TIMESTAMP()', true);
+                $this->summaryAdd('lastcycle', time(), true);
             }
         }
 
-        // Do NOT update users.uploaded/downloaded here — updateLiveStats() already
-        // credited the incremental delta at the start of handle() for this announce.
-
         $this->updateHistoryActive($infoHash, $pid, 'no');
-
-        return $this->buildPeerResponse($infoHash, $pid, false);
     }
 
     private function handleCompleted(
         string $infoHash, string $peerId, string $ip, int $port,
         int $left, int $uploaded, int $downloaded, string $pid, User $user
-    ): string {
+    ): void {
         $peer = $this->getPeer($infoHash, $peerId);
 
         if (!$peer) {
@@ -225,7 +238,7 @@ class AnnounceService
                 ->update([
                     'bytes'      => 0,
                     'status'     => 'seeder',
-                    'lastupdate' => DB::raw('UNIX_TIMESTAMP()'),
+                    'lastupdate' => time(),
                     'downloaded' => $downloaded,
                     'uploaded'   => $uploaded,
                     'passkey'    => $pid,
@@ -235,69 +248,62 @@ class AnnounceService
                 $this->summaryAdd('leechers', -1);
                 $this->summaryAdd('seeds', 1);
                 $this->summaryAdd('finished', 1);
-                $this->summaryAdd('lastcycle', 'UNIX_TIMESTAMP()', true);
+                $this->summaryAdd('lastcycle', time(), true);
             }
         }
 
         $this->logHistory($infoHash, $user->id, 'yes', true);
-
-        return $this->buildPeerResponse($infoHash, $pid, true);
     }
 
     private function handleAnnounce(
         string $infoHash, string $peerId, string $ip, int $port,
         int $left, int $uploaded, int $downloaded, string $pid
-    ): string {
+    ): void {
         $peer = $this->getPeer($infoHash, $peerId);
 
         if (!$peer) {
             $this->insertOrUpdatePeer($infoHash, $peerId, $ip, $port, $left, $uploaded, $downloaded, $pid);
-        } else {
-            $prevLeft = $peer->bytes ?? 0;
+            return;
+        }
 
-            // Peer completed since last announce
-            if ($prevLeft !== 0 && $left === 0) {
-                $updated = DB::table('peers')
-                    ->where('id', $peer->id)
-                    ->where('infohash', $infoHash)
-                    ->update([
-                        'bytes'      => 0,
-                        'status'     => 'seeder',
-                        'lastupdate' => DB::raw('UNIX_TIMESTAMP()'),
-                        'downloaded' => $downloaded,
-                        'uploaded'   => $uploaded,
-                        'passkey'    => $pid,
-                    ]);
+        $prevLeft = $peer->bytes ?? 0;
 
-                if ($updated === 1) {
-                    $this->summaryAdd('leechers', -1);
-                    $this->summaryAdd('seeds', 1);
-                    $this->summaryAdd('finished', 1);
-                    $this->summaryAdd('lastcycle', 'UNIX_TIMESTAMP()', true);
-                }
-            } else {
-                $diff = $prevLeft - $left;
-
-                $update = [
-                    'lastupdate' => DB::raw('UNIX_TIMESTAMP()'),
+        if ($prevLeft !== 0 && $left === 0) {
+            DB::table('peers')
+                ->where('id', $peer->id)
+                ->where('infohash', $infoHash)
+                ->update([
+                    'bytes'      => 0,
+                    'status'     => 'seeder',
+                    'lastupdate' => time(),
                     'downloaded' => $downloaded,
                     'uploaded'   => $uploaded,
                     'passkey'    => $pid,
-                ];
+                ]);
 
-                if ($diff > 0) {
-                    $update['bytes'] = $left;
-                    $this->summaryAdd('dlbytes', $diff);
-                }
+            $this->summaryAdd('leechers', -1);
+            $this->summaryAdd('seeds', 1);
+            $this->summaryAdd('finished', 1);
+            $this->summaryAdd('lastcycle', time(), true);
+        } else {
+            $update = [
+                'lastupdate' => time(),
+                'downloaded' => $downloaded,
+                'uploaded'   => $uploaded,
+                'passkey'    => $pid,
+            ];
 
-                DB::table('peers')
-                    ->where('id', $peer->id)
-                    ->where('infohash', $infoHash)
-                    ->update($update);
+            $diff = $prevLeft - $left;
+            if ($diff > 0) {
+                $update['bytes'] = $left;
+                $this->summaryAdd('dlbytes', $diff);
             }
-        }
 
-        return $this->buildPeerResponse($infoHash, $pid, true);
+            DB::table('peers')
+                ->where('id', $peer->id)
+                ->where('infohash', $infoHash)
+                ->update($update);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -326,11 +332,11 @@ class AnnounceService
                 'client'     => '',
                 'dns'        => '',
                 'natuser'    => 'N',
-                'lastupdate' => DB::raw('UNIX_TIMESTAMP()'),
+                'lastupdate' => time(),
             ]);
 
             $this->summaryAdd($status === 'seeder' ? 'seeds' : 'leechers', 1);
-            $this->summaryAdd('lastcycle', 'UNIX_TIMESTAMP()', true);
+            $this->summaryAdd('lastcycle', time(), true);
         } catch (\Exception $e) {
             Log::error('Announce peer insert failed', ['error' => $e->getMessage()]);
         }
@@ -345,41 +351,36 @@ class AnnounceService
     }
 
     // -------------------------------------------------------------------------
-    // Peer response building (BEP 23)
+    // Peer response (BEP 23 compact format, C-02)
     // -------------------------------------------------------------------------
 
-    private function buildPeerResponse(string $infoHash, string $pid, bool $includeCompact): string
+    private function buildPeerResponse(string $infoHash, int $numwant): string
     {
         $peers = DB::table('peers')
             ->select('ip', 'port', 'peer_id')
             ->where('infohash', $infoHash)
             ->where('natuser', 'N')
             ->inRandomOrder()
-            ->limit($this->maxPeers)
+            ->limit($numwant)
             ->get();
 
-        $body  = 'd';
-        $body .= '8:intervali' . $this->interval . 'e';
-        $body .= '12:min intervali' . $this->minInterval . 'e';
-
-        // Compact format (BEP 23): 6-byte binary per peer (4-byte IP + 2-byte port, big-endian)
         $compactStr = '';
         foreach ($peers as $peer) {
             $packed = @inet_pton($peer->ip);
             if ($packed === false || strlen($packed) !== 4) {
-                // Skip IPv6 peers for now (deferred per plan)
-                $packed = pack('N', ip2long($peer->ip));
+                // Skip IPv6 — deferred; compact format is IPv4-only (BEP 23)
+                continue;
             }
             $compactStr .= $packed . pack('n', $peer->port);
         }
-        $body .= '5:peers' . strlen($compactStr) . ':' . $compactStr;
 
-        $body .= 'e';
-
-        return $body;
+        return 'd'
+            . '8:intervali' . $this->interval . 'e'
+            . '12:min intervali' . $this->minInterval . 'e'
+            . '5:peers' . strlen($compactStr) . ':' . $compactStr
+            . 'e';
     }
 
-    /** Build 6-byte binary compact representation for a single peer. */
     private function buildCompact(string $ip, int $port): string
     {
         $packed = @inet_pton($ip);
@@ -391,21 +392,68 @@ class AnnounceService
     }
 
     // -------------------------------------------------------------------------
+    // Speed sampling (C-17) — rolling 20-sample window per torrent
+    // -------------------------------------------------------------------------
+
+    private function recordSpeedSample(string $infoHash): void
+    {
+        $prevSample = DB::table('speed_samples')
+            ->where('info_hash', $infoHash)
+            ->orderByDesc('sampled_at')
+            ->select('bytes', 'sampled_at')
+            ->first();
+
+        $now          = time();
+        $currentBytes = (int) DB::table('files')
+            ->where('info_hash', $infoHash)
+            ->value('dlbytes');
+
+        $delta = $prevSample ? max(1, $now - $prevSample->sampled_at) : 1;
+        $bytes = $prevSample ? max(0, $currentBytes - $prevSample->bytes) : 0;
+
+        DB::table('speed_samples')->insert([
+            'info_hash'  => $infoHash,
+            'bytes'      => $bytes,
+            'delta'      => $delta,
+            'sampled_at' => $now,
+        ]);
+
+        // Keep only last 20 samples — delete oldest beyond that.
+        $keep = DB::table('speed_samples')
+            ->where('info_hash', $infoHash)
+            ->orderByDesc('sampled_at')
+            ->limit(20)
+            ->pluck('id');
+
+        if ($keep->count() >= 20) {
+            DB::table('speed_samples')
+                ->where('info_hash', $infoHash)
+                ->whereNotIn('id', $keep)
+                ->delete();
+
+            // Recalculate cached speed: total bytes / total time over the window.
+            $window = DB::table('speed_samples')
+                ->where('info_hash', $infoHash)
+                ->selectRaw('SUM(bytes) as total_bytes, SUM(delta) as total_delta')
+                ->first();
+
+            $speed = $window && $window->total_delta > 0
+                ? (int) ($window->total_bytes / $window->total_delta)
+                : 0;
+
+            DB::table('files')
+                ->where('info_hash', $infoHash)
+                ->update(['speed' => $speed]);
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // summaryAdd — batched UPDATE to files table
     // -------------------------------------------------------------------------
 
-    /**
-     * Accumulate a files column update. Flushed once at end of request.
-     *
-     * @param bool $abs  If true, sets column to an absolute value (e.g. UNIX_TIMESTAMP())
-     *                   rather than incrementing it.
-     */
     private function summaryAdd(string $column, int|string $value, bool $abs = false): void
     {
         if ($abs) {
-            if (isset($this->summary[$column]) && !($this->summary[$column]['abs'] ?? false)) {
-                Log::warning('summaryAdd: column already queued as non-absolute', ['col' => $column]);
-            }
             $this->summary[$column] = ['value' => $value, 'abs' => true];
         } else {
             if (isset($this->summary[$column])) {
@@ -425,11 +473,10 @@ class AnnounceService
         $sets = [];
         foreach ($this->summary as $col => $entry) {
             if ($entry['abs']) {
-                // Absolute value — used for timestamps; value may be a SQL expression
-                $sets[] = "`$col` = " . (is_numeric($entry['value']) ? (int) $entry['value'] : $entry['value']);
+                $v      = $entry['value'];
+                $sets[] = "`$col` = " . (is_numeric($v) ? (int) $v : $v);
             } else {
-                $v = (int) $entry['value'];
-                // Guard against negative counts
+                $v      = (int) $entry['value'];
                 $sets[] = "`$col` = IF((`$col` < ABS($v) AND $v < 0), 0, `$col` + $v)";
             }
         }
@@ -441,7 +488,7 @@ class AnnounceService
     }
 
     // -------------------------------------------------------------------------
-    // Concurrency limits
+    // Concurrency limits (C-09)
     // -------------------------------------------------------------------------
 
     private function checkConcurrencyLimit(string $pid, string $infoHash, string $peerId): ?string
@@ -495,10 +542,9 @@ class AnnounceService
 
     private function logHistory(string $infoHash, int $userId, string $active, bool $isComplete = false): void
     {
-        // date = snatch timestamp; only set on actual completion, not on re-announce or started
         $update = ['active' => $active];
         if ($isComplete) {
-            $update['date'] = DB::raw('UNIX_TIMESTAMP()');
+            $update['date'] = time();
         }
 
         $updated = DB::table('history')
@@ -521,17 +567,16 @@ class AnnounceService
 
     private function updateHistoryActive(string $infoHash, string $pid, string $active): void
     {
-        $user = DB::table('users')
-            ->select('id')
+        $uid = DB::table('users')
             ->where(function ($q) use ($pid) {
                 $q->where('passkey', $pid)->orWhere('legacy_passkey', $pid);
             })
             ->orderByDesc('updated_at')
             ->value('id');
 
-        if ($user) {
+        if ($uid) {
             DB::table('history')
-                ->where('uid', $user)
+                ->where('uid', $uid)
                 ->where('infohash', $infoHash)
                 ->update(['active' => $active]);
         }
